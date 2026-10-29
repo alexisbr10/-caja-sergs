@@ -26,6 +26,7 @@
   }
   function mapErr(e) {
     var msg = (e && e.message) || '';
+    if (/mes_cerrado/i.test(msg)) return { code: 'mes_cerrado', message: msg };
     var code = (e && (e.code === '42501' || /row-level security|permission denied|solo puede/i.test(msg))) ? 'invalid_argument' : 'unavailable';
     return { code: code, message: msg };
   }
@@ -150,6 +151,20 @@
       document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
       return Promise.resolve({ status: 'saved' });
+    }
+  };
+
+  /* ---- fotos de comprobantes (Storage privado) ---- */
+  var BUCKET = 'comprobantes';
+  window.CajaStorage = {
+    subir: async function (path, blob) {
+      var r = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (r.error) throw r.error;
+    },
+    url: async function (path) {
+      var r = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+      if (r.error) throw r.error;
+      return r.data.signedUrl;
     }
   };
 
