@@ -932,6 +932,7 @@ details.card>summary{cursor:pointer;font-weight:600}
     }else if(m.comentario){com='<div class="coment">'+esc(m.comentario)+'</div>'}
     var acts='',cer=mesCerrado(m.fecha);
     if(m.foto&&window.CajaStorage)acts+='<button class="link" type="button" data-foto="'+esc(m.foto)+'">Comprobante</button>';
+    if(esAdmin&&m.anulado&&!cer)acts+='<button class="link" type="button" data-borrar="'+esc(m.id)+'">Eliminar</button>';
     if(puedeEscribir&&!m.anulado&&!cer){
       acts+='<button class="link" type="button" data-comentar="'+esc(m.id)+'">'+(m.comentario?'Editar comentario':'Comentar')+'</button>';
       acts+='<button class="link" type="button" data-anular="'+esc(m.id)+'">Anular</button>';
@@ -945,13 +946,21 @@ details.card>summary{cursor:pointer;font-weight:600}
   $('filas').addEventListener('input',function(e){if(e.target.id==='cEdit')editDraft=e.target.value});
   $('filas').addEventListener('click',function(e){
     var t=e.target;if(!t.getAttribute)return;
-    var an=t.getAttribute('data-anular'),co=t.getAttribute('data-comentar'),cs=t.getAttribute('data-csave'),fo=t.getAttribute('data-foto');
+    var an=t.getAttribute('data-anular'),co=t.getAttribute('data-comentar'),cs=t.getAttribute('data-csave'),fo=t.getAttribute('data-foto'),bo=t.getAttribute('data-borrar');
     if(fo&&window.CajaStorage){abrirVisor(fo);return}
     if(co){var m=movs.find(function(x){return x.id===co});editId=co;editDraft=(m&&m.comentario)||'';renderMovs();return}
     if(t.getAttribute('data-ccancel')){editId=null;renderMovs();return}
     if(cs&&db){
       var txt=editDraft.trim();t.disabled=true;
       db.doc('movimientos/'+cs).update({comentario:txt}).then(function(){editId=null;renderMovs()}).catch(function(er){t.disabled=false;t.textContent=(er&&er.code==='mes_cerrado')?'Mes cerrado':'No se pudo guardar'});
+      return;
+    }
+    if(bo&&db){
+      if(t.getAttribute('data-sure')!=='1'){t.setAttribute('data-sure','1');t.textContent='¿Eliminar para siempre? Confirmar';return}
+      t.disabled=true;
+      var mb=movs.find(function(x){return x.id===bo}),idb=[bo];
+      if(mb&&mb.traspasoId)idb=movs.filter(function(x){return x.traspasoId===mb.traspasoId}).map(function(x){return x.id});
+      Promise.all(idb.map(function(id){return db.doc('movimientos/'+id).delete()})).catch(function(){t.disabled=false;t.textContent='No se pudo eliminar'});
       return;
     }
     if(an&&db){
