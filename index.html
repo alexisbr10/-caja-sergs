@@ -513,13 +513,13 @@ details.card>summary{cursor:pointer;font-weight:600}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           <label for="uPass">Contraseña inicial<input id="uPass" type="text" minlength="6" required autocomplete="off" placeholder="Mínimo 6 caracteres"></label>
-          <label for="uRol">Rol<select id="uRol"><option value="cajero">Cajero</option><option value="lector">Lector</option><option value="admin">Administrador</option></select></label>
+          <label for="uRol">Rol<select id="uRol"><option value="cajero">Usuario</option><option value="lector">Lector</option><option value="admin">Administrador</option></select></label>
         </div>
         <button class="btn" id="uBtn" type="submit">Crear usuario</button>
       </form>
       <div class="roles">
         <div><b>Administrador</b>Ve y hace todo, y administra usuarios.</div>
-        <div><b>Cajero</b>Ve todo, registra movimientos, traspasos y arqueos, anula y comenta.</div>
+        <div><b>Usuario</b>Ve todo, registra movimientos, traspasos y arqueos, anula y comenta.</div>
         <div><b>Lector</b>Solo ve la caja, el panel y los reportes.</div>
         <div><b>Pendiente o Bloqueado</b>No ve nada.</div>
       </div>
@@ -1179,7 +1179,7 @@ details.card>summary{cursor:pointer;font-weight:600}
 
   /* ---------- cuentas y acceso ---------- */
   var A=window.CajaAuth,suscrito=false,esAdmin=false,usuarios=[];
-  var ROLES={admin:'Administrador',cajero:'Cajero',lector:'Lector',pendiente:'Pendiente',bloqueado:'Bloqueado'};
+  var ROLES={admin:'Administrador',cajero:'Usuario',lector:'Lector',pendiente:'Pendiente',bloqueado:'Bloqueado'};
   function mostrarPane(n){['paneCarga','paneConfig','paneAuth','panePend'].forEach(function(p){$(p).hidden=p!==n})}
   function modoAuth(){
     $('auAyuda').textContent='¿No tienes acceso? Pídelo al administrador.';
