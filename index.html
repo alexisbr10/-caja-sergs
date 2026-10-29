@@ -1159,7 +1159,7 @@ details.card>summary{cursor:pointer;font-weight:600}
 
   /* ---------- permisos, nombres y arranque ---------- */
   function aplicarPermiso(){
-    $('empPanel').hidden=!puedeEscribir;$('form').hidden=!puedeEscribir;$('soloLectura').hidden=puedeEscribir;render();
+    $('empPanel').hidden=!esAdmin;$('form').hidden=!puedeEscribir;$('soloLectura').hidden=puedeEscribir;render();
   }
   async function resolverNombres(){
     if(!userNS)return;
