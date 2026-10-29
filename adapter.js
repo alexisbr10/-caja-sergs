@@ -9,7 +9,10 @@
   var perfil = null;
 
   /* ---- nombres de campos: la página usa camelCase, la base usa snake_case ---- */
-  var MAPAS = { movimientos: { traspasoId: 'traspaso_id', arqueoId: 'arqueo_id' }, arqueos: { ajusteId: 'ajuste_id' } };
+  var MAPAS = { movimientos: { traspasoId: 'traspaso_id', arqueoId: 'arqueo_id' }, arqueos: { ajusteId: 'ajuste_id' },
+    solicitudes: { movimientoId: 'movimiento_id', resueltoPor: 'resuelto_por' }, documentos: { movimientoId: 'movimiento_id' } };
+  /* Tablas donde solo se inserta (nadie, salvo el propietario, puede reescribir filas). */
+  var SOLO_INSERTAR = { movimientos: 1, solicitudes: 1, documentos: 1 };
   function inv(m) { var r = {}; Object.keys(m).forEach(function (k) { r[m[k]] = k; }); return r; }
   function aFila(col, d) {
     var m = MAPAS[col] || {}, r = {};
@@ -87,7 +90,7 @@
     return {
       path: path, id: id,
       get: function () { return sb.from(col).select('*').eq('id', id).maybeSingle().then(function (r) { return snapDoc(id, r.data, col); }); },
-      set: function (d) { var f = aFila(col, d); f.id = id; return sb.from(col).upsert(f).then(chk); },
+      set: function (d) { var f = aFila(col, d); f.id = id; return (SOLO_INSERTAR[col] ? sb.from(col).insert(f) : sb.from(col).upsert(f)).then(chk); },
       update: function (d) {
         return sb.from(col).update(aFila(col, d)).eq('id', id).select().then(function (r) {
           if (r.error) throw mapErr(r.error);
@@ -158,7 +161,7 @@
   var BUCKET = 'comprobantes';
   window.CajaStorage = {
     subir: async function (path, blob) {
-      var r = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      var r = await sb.storage.from(BUCKET).upload(path, blob, { contentType: (blob && blob.type) || 'image/jpeg', upsert: false });
       if (r.error) throw r.error;
     },
     url: async function (path) {
@@ -218,6 +221,10 @@
       var r = await sb.from('profiles').update({ rol: rol }).eq('id', id).select();
       if (r.error) throw r.error;
       if (!r.data || !r.data.length) throw { message: 'Sin permiso' };
+    },
+    resolverSolicitud: async function (id, aprobar, respuesta) {
+      var r = await sb.rpc('resolver_solicitud', { p_id: id, p_aprobar: !!aprobar, p_resp: respuesta || null });
+      if (r.error) throw mapErr(r.error);
     },
     cambiarClave: async function (id, pass) {
       var r = await sb.rpc('admin_cambiar_clave', { p_uid: id, p_clave: pass });
