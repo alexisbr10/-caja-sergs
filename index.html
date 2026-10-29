@@ -342,7 +342,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
         <div class="k">Entradas <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">(según filtros)</span></div>
         <div class="mid num in" id="totIn">S/ 0.00</div>
       </div>
-      <div class="card">
+      <div class="card" id="cSal">
         <div class="k">Salidas <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">(según filtros)</span></div>
         <div class="mid num out" id="totOut">S/ 0.00</div>
       </div>
@@ -626,8 +626,8 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
       </form>
       <div class="roles">
         <div><b>Propietario</b>Ve todo, incluido el saldo. Aprueba correcciones y eliminaciones, y administra usuarios.</div>
-        <div><b>Administrador operativo</b>Ve saldo, ingresos y egresos. Registra movimientos con comprobantes. Para corregir o eliminar debe pedir autorización.</div>
-        <div><b>Control documentario</b>Registra ingresos y egresos y sube facturas y comprobantes. No ve el saldo ni modifica movimientos.</div>
+        <div><b>Administrador operativo</b>Ve saldo, ingresos y egresos, historial y ajustes de categorías y obras. Registra movimientos con comprobantes. Para corregir o eliminar debe pedir autorización.</div>
+        <div><b>Control documentario</b>Registra ingresos y egresos y sube facturas y comprobantes. Solo ve lo que él registra: sin saldo, panel ni reportes, y no modifica movimientos.</div>
         <div><b>Pendiente o Bloqueado</b>No ve nada.</div>
       </div>
       <div class="tablewrap">
@@ -858,7 +858,9 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 
   /* ---------- vistas ---------- */
   function irA(v){
-    if((v==='historial'||v==='ajustes'||v==='usuarios'||v==='cierres')&&!esAdmin)v='movimientos';
+    if((v==='usuarios'||v==='cierres')&&!esAdmin)v='movimientos';
+    if((v==='historial'||v==='ajustes')&&!(esAdmin||esOper))v='movimientos';
+    if(v==='gerencia'&&esDoc)v='movimientos';
     if(v==='solicitudes'&&!(esAdmin||esOper))v='movimientos';
     vista=v;
     VISTAS.forEach(function(x){
@@ -908,6 +910,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
   function renderMovs(){
     var lista=filtrados(), base=totales(filtroBase()), caja=$('gCaja').value;
     var vs=verSaldo;
+    $('cSal').hidden=esDoc;$('btnPdf').parentNode.hidden=esDoc;$('bannerBajo').hidden=true;
     $('cSaldo').hidden=!vs;$('cEnt').hidden=!vs;$('secCajas').hidden=!vs;
     $('totOut').textContent=fmt(base.PEN.s,'PEN');
     var bajas=[];
@@ -932,7 +935,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
     $('vacio').hidden=lista.length>0;
     $('filas').innerHTML=lista.map(filaHTML).join('');
     var t=totales(lista);
-    $('pie').innerHTML=lista.length?(vs?'<tr><td colspan="3">Total de la lista (S/, sin traspasos ni ajustes)</td><td class="r num in">'+fmt(t.PEN.i,'PEN')+'</td><td class="r num out">'+fmt(t.PEN.s,'PEN')+'</td><td></td></tr>'
+    $('pie').innerHTML=esDoc?'':lista.length?(vs?'<tr><td colspan="3">Total de la lista (S/, sin traspasos ni ajustes)</td><td class="r num in">'+fmt(t.PEN.i,'PEN')+'</td><td class="r num out">'+fmt(t.PEN.s,'PEN')+'</td><td></td></tr>'
       :'<tr><td colspan="3">Total de gastos de la lista (S/)</td><td></td><td class="r num out">'+fmt(t.PEN.s,'PEN')+'</td><td></td></tr>'):'';
     if(editId){var ta=$('cEdit');if(ta&&document.activeElement!==ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}}
   }
@@ -1508,7 +1511,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
     var mp=function(snap){return snap.docs.map(function(d){var o=Object.assign({},d.data());o.id=d.id;return o})};
     db.collection('catalogos').limit(500).onSnapshot(function(s){catalogos=mp(s);render()},function(){});
     db.collection('cierres').limit(200).onSnapshot(function(s){cierres=mp(s);render()},function(){});
-    if(esAdmin)db.collection('historial').limit(300).onSnapshot(function(s){historial=mp(s);if(vista==='historial')renderHistorial()},function(){});
+    if(esAdmin||esOper)db.collection('historial').limit(300).onSnapshot(function(s){historial=mp(s);if(vista==='historial')renderHistorial()},function(){});
   }
 
   /* ---------- Descargas ---------- */
@@ -1610,6 +1613,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
   function aplicarPermiso(){
     $('empPanel').hidden=!esAdmin;$('form').hidden=!puedeEscribir;$('soloLectura').hidden=puedeEscribir;
     $('soloLectura').textContent='Sin permiso para registrar movimientos.';
+    $('tab-gerencia').hidden=esDoc;
     var lt=document.querySelector('label.t');if(lt)lt.hidden=!esAdmin;
     render();
   }
@@ -1662,7 +1666,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
     miId=await userNS.id();yo=await userNS.me();
     esAdmin=p.rol==='admin';esOper=p.rol==='cajero';esDoc=p.rol==='documentario'||p.rol==='lector';verSaldo=esAdmin||esOper;puedeEscribir=esAdmin||esOper||esDoc;
     $('usrChip').hidden=false;$('usrChip').textContent=(p.nombre||p.email)+' · '+ROLES[p.rol];
-    $('tab-usuarios').hidden=!esAdmin;$('tab-historial').hidden=!esAdmin;$('tab-ajustes').hidden=!esAdmin;$('tab-cierres').hidden=!esAdmin;
+    $('tab-usuarios').hidden=!esAdmin;$('tab-historial').hidden=!(esAdmin||esOper);$('tab-ajustes').hidden=!(esAdmin||esOper);$('tab-gerencia').hidden=esDoc;$('tab-cierres').hidden=!esAdmin;
     $('tab-solicitudes').hidden=!(esAdmin||esOper);$('tab-documentos').hidden=false;
     entrado=true;$('inicio').hidden=true;$('app').hidden=false;
     aplicarPermiso();

@@ -171,3 +171,17 @@ create policy cat_ver on public.catalogos for select using (
 drop policy if exists cat_crear on public.catalogos;
 create policy cat_crear on public.catalogos for insert with check (
   mi_rol() = 'admin' or (mi_rol() in ('cajero','documentario') and tipo in ('categoria','obra')));
+
+-- Matriz final: Control documentario solo ve lo que registra; el operativo ve historial y gestiona categorías/obras/mínimos.
+drop policy if exists mov_ver on public.movimientos;
+create policy mov_ver on public.movimientos for select using (
+  mi_rol() in ('admin','cajero') or (mi_rol() = 'documentario' and uid = auth.uid()));
+drop policy if exists his_ver on public.historial;
+create policy his_ver on public.historial for select using (mi_rol() in ('admin','cajero'));
+drop policy if exists cat_crear on public.catalogos;
+drop policy if exists cat_editar on public.catalogos;
+drop policy if exists cat_borrar on public.catalogos;
+create policy cat_crear on public.catalogos for insert with check (
+  mi_rol() in ('admin','cajero') or (mi_rol() = 'documentario' and tipo in ('categoria','obra')));
+create policy cat_editar on public.catalogos for update using (mi_rol() in ('admin','cajero')) with check (mi_rol() in ('admin','cajero'));
+create policy cat_borrar on public.catalogos for delete using (mi_rol() in ('admin','cajero'));
