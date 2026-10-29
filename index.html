@@ -625,9 +625,9 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
         <button class="btn" id="uBtn" type="submit">Crear usuario</button>
       </form>
       <div class="roles">
-        <div><b>Propietario</b>Ve todo, incluido el saldo de caja. Aprueba correcciones y eliminaciones, y administra usuarios.</div>
-        <div><b>Administrador operativo</b>Registra ingresos y egresos con comprobantes. No ve el saldo. Para corregir o eliminar debe pedir autorización.</div>
-        <div><b>Control documentario</b>Solo sube facturas y comprobantes y ve el detalle de gastos. No ve el saldo ni modifica movimientos.</div>
+        <div><b>Propietario</b>Ve todo, incluido el saldo. Aprueba correcciones y eliminaciones, y administra usuarios.</div>
+        <div><b>Administrador operativo</b>Ve saldo, ingresos y egresos. Registra movimientos con comprobantes. Para corregir o eliminar debe pedir autorización.</div>
+        <div><b>Control documentario</b>Registra ingresos y egresos y sube facturas y comprobantes. No ve el saldo ni modifica movimientos.</div>
         <div><b>Pendiente o Bloqueado</b>No ve nada.</div>
       </div>
       <div class="tablewrap">
@@ -662,7 +662,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 (function(){
   var db=null,userNS=null,puedeEscribir=true,miId=null,perfiles={};
   var movs=[],arqueos=[],cajasExtra=[];
-  var catalogos=[],cierres=[],historial=[],extras={categoria:[],obra:[]},esAdmin=false,esOper=false,esDoc=false,solicitudes=[],documentos=[],confirmBajo=false;
+  var catalogos=[],cierres=[],historial=[],extras={categoria:[],obra:[]},esAdmin=false,esOper=false,esDoc=false,verSaldo=false,solicitudes=[],documentos=[],confirmBajo=false;
   var VISTAS=['movimientos','gerencia','cierres','solicitudes','documentos','historial','ajustes','usuarios'];
   var ROLN={admin:'Propietario',cajero:'Administrador operativo',documentario:'Control documentario',lector:'Control documentario',pendiente:'Pendiente',bloqueado:'Bloqueado'};
   var MESESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
@@ -799,7 +799,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 
   /* ---------- aviso de saldo bajo ---------- */
   function chequeoBajo(caja,moneda,importe){
-    if(moneda!=='PEN'||!esAdmin)return null;
+    if(moneda!=='PEN'||!verSaldo)return null;
     var cs=saldoCajas(),s=(cs[caja]&&cs[caja].PEN)||0,q=Math.round((s-importe)*100)/100,min=minimoDe(caja);
     if(q<0)return 'Con esta salida la caja '+caja+' quedaría en negativo ('+fmt(q,'PEN')+').';
     if(min!==null&&q<min)return 'Con esta salida la caja '+caja+' quedaría en '+fmt(q,'PEN')+', por debajo del mínimo ('+fmt(min,'PEN')+').';
@@ -907,7 +907,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 
   function renderMovs(){
     var lista=filtrados(), base=totales(filtroBase()), caja=$('gCaja').value;
-    var vs=esAdmin;
+    var vs=verSaldo;
     $('cSaldo').hidden=!vs;$('cEnt').hidden=!vs;$('secCajas').hidden=!vs;
     $('totOut').textContent=fmt(base.PEN.s,'PEN');
     var bajas=[];
@@ -1118,7 +1118,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
   }
 
   function renderGerencia(){
-    var sec=!esAdmin;
+    var sec=!verSaldo;
     var lista=filtroBase().filter(function(m){return !m.anulado&&!neutro(m)&&(m.moneda||'PEN')==='PEN'&&(!sec||m.tipo==='salida')});
     var usdN=filtroBase().filter(function(m){return !m.anulado&&m.moneda==='USD'}).length;
     var I=0,S=0,mayor=null,nI=0,nS=0;
@@ -1567,8 +1567,8 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
         return [fechaBonita(m.fecha),conc,[m.destinatario,m.comprobante].filter(Boolean).join(' · '),m.caja||'',m.metodo||'',m.categoria||'',m.obra||'',k,
           m.tipo==='entrada'?pnum(m.importe):'',m.tipo==='salida'?pnum(m.importe):''];
       });
-      var foot=[[{content:esAdmin?'TOTAL S/ (sin traspasos ni ajustes)':'TOTAL GASTOS S/',colSpan:7},'PEN',esAdmin?pnum(tIn.PEN):'',pnum(tOut.PEN)]];
-      if(tIn.USD||tOut.USD)foot.push([{content:'TOTAL US$',colSpan:7},'USD',esAdmin?pnum(tIn.USD):'',pnum(tOut.USD)]);
+      var foot=[[{content:verSaldo?'TOTAL S/ (sin traspasos ni ajustes)':'TOTAL GASTOS S/',colSpan:7},'PEN',verSaldo?pnum(tIn.PEN):'',pnum(tOut.PEN)]];
+      if(tIn.USD||tOut.USD)foot.push([{content:'TOTAL US$',colSpan:7},'USD',verSaldo?pnum(tIn.USD):'',pnum(tOut.USD)]);
       doc.autoTable({startY:lineY+4,margin:{left:M,right:M},
         head:[['Fecha','Concepto','Origen / Destino · Comprobante','Caja','Método','Categoría','Obra','Mon.','Entrada','Salida']],
         body:body,foot:foot,showFoot:'lastPage',
@@ -1577,7 +1577,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
         footStyles:{fillColor:[237,240,245],textColor:[24,32,43],fontStyle:'bold'},
         columnStyles:{0:{cellWidth:28},8:{halign:'right'},9:{halign:'right'}},
         didParseCell:function(h){if(h.section!=='body'&&(h.column.index===8||h.column.index===9))h.cell.styles.halign='right'}});
-      if(esAdmin){
+      if(verSaldo){
         var fy=doc.lastAutoTable.finalY+8;if(fy>doc.internal.pageSize.getHeight()-20){doc.addPage();fy=20}
         var cs=saldoCajas(),sp=0;Object.keys(cs).forEach(function(c){if(!$('gCaja').value||c===$('gCaja').value)sp+=cs[c].PEN});
         doc.setFont('helvetica','bold');doc.setFontSize(10);
@@ -1609,7 +1609,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
   /* ---------- permisos, nombres y arranque ---------- */
   function aplicarPermiso(){
     $('empPanel').hidden=!esAdmin;$('form').hidden=!puedeEscribir;$('soloLectura').hidden=puedeEscribir;
-    $('soloLectura').textContent='Tu perfil (Control documentario) solo puede subir facturas y comprobantes. Usa «Adjuntar» en cada gasto o la pestaña Documentos. Puedes ver el detalle de gastos, pero no el saldo de caja.';
+    $('soloLectura').textContent='Sin permiso para registrar movimientos.';
     var lt=document.querySelector('label.t');if(lt)lt.hidden=!esAdmin;
     render();
   }
@@ -1660,7 +1660,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
   async function entrarApp(p){
     userNS=await window.claude.use('user');db=await window.claude.use('db');
     miId=await userNS.id();yo=await userNS.me();
-    esAdmin=p.rol==='admin';esOper=p.rol==='cajero';esDoc=p.rol==='documentario'||p.rol==='lector';puedeEscribir=esAdmin||esOper;
+    esAdmin=p.rol==='admin';esOper=p.rol==='cajero';esDoc=p.rol==='documentario'||p.rol==='lector';verSaldo=esAdmin||esOper;puedeEscribir=esAdmin||esOper||esDoc;
     $('usrChip').hidden=false;$('usrChip').textContent=(p.nombre||p.email)+' · '+ROLES[p.rol];
     $('tab-usuarios').hidden=!esAdmin;$('tab-historial').hidden=!esAdmin;$('tab-ajustes').hidden=!esAdmin;$('tab-cierres').hidden=!esAdmin;
     $('tab-solicitudes').hidden=!(esAdmin||esOper);$('tab-documentos').hidden=false;

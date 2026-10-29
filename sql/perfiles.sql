@@ -155,3 +155,19 @@ do $$ begin
   begin alter publication supabase_realtime add table public.solicitudes; exception when others then null; end;
   begin alter publication supabase_realtime add table public.documentos; exception when others then null; end;
 end $$;
+
+-- Ajuste posterior: el Administrador operativo ve el saldo; Control documentario también registra movimientos (sin ver saldo).
+drop policy if exists mov_ver on public.movimientos;
+drop policy if exists mov_crear on public.movimientos;
+create policy mov_ver on public.movimientos for select using (
+  mi_rol() in ('admin','cajero')
+  or (mi_rol() = 'documentario' and ((tipo='salida' and traspaso=false and ajuste=false) or uid = auth.uid())));
+create policy mov_crear on public.movimientos for insert with check (
+  mi_rol() = 'admin'
+  or (mi_rol() in ('cajero','documentario') and traspaso=false and ajuste=false and uid = auth.uid()));
+drop policy if exists cat_ver on public.catalogos;
+create policy cat_ver on public.catalogos for select using (
+  mi_rol() in ('admin','cajero') or (mi_rol() = 'documentario' and tipo in ('categoria','obra')));
+drop policy if exists cat_crear on public.catalogos;
+create policy cat_crear on public.catalogos for insert with check (
+  mi_rol() = 'admin' or (mi_rol() in ('cajero','documentario') and tipo in ('categoria','obra')));
