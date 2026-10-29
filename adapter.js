@@ -219,12 +219,17 @@
       if (r.error) throw r.error;
       if (!r.data || !r.data.length) throw { message: 'Sin permiso' };
     },
+    cambiarClave: async function (id, pass) {
+      var r = await sb.rpc('admin_cambiar_clave', { p_uid: id, p_clave: pass });
+      if (r.error) throw r.error;
+    },
     mensajeError: function (e) {
       var m = String((e && e.message) || '');
       if (/invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
       if (/already registered|already been registered/i.test(m)) return 'Ese correo ya tiene una cuenta. Usa "Ingresar".';
       if (/at least \d+ characters|weak/i.test(m)) return 'La contraseña es muy corta. Usa al menos 6 caracteres.';
       if (/not confirmed/i.test(m)) return 'Confirma tu correo antes de ingresar. Revisa tu bandeja de entrada.';
+      if (/al menos 6|at least \d+ characters|weak/i.test(m)) return 'La contraseña es muy corta. Usa al menos 6 caracteres.';
       if (/rate limit|too many/i.test(m)) return 'Demasiados intentos. Espera unos minutos.';
       if (/valid email|invalid email/i.test(m)) return 'Escribe un correo válido.';
       if (/failed to fetch|network/i.test(m)) return 'No hay conexión. Revisa tu internet.';

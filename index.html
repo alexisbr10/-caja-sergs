@@ -618,7 +618,7 @@ details.card>summary{cursor:pointer;font-weight:600}
       </div>
       <div class="tablewrap">
         <table style="min-width:600px">
-          <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Alta</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Contraseña</th><th>Alta</th></tr></thead>
           <tbody id="uFilas"></tbody>
         </table>
       </div>
@@ -1343,6 +1343,7 @@ details.card>summary{cursor:pointer;font-weight:600}
       case 'cierre':return 'Cerró el mes de '+(d.mes?nombreMes(d.mes):'');
       case 'reapertura':return 'Reabrió el mes de '+(d.mes?nombreMes(d.mes):'');
       case 'rol':return 'Cambió el acceso de '+(d.email||'')+': '+(ROLN[d.antes]||d.antes)+' → '+(ROLN[d.despues]||d.despues);
+      case 'clave':return 'Cambió la contraseña de '+(d.email||'');
       case 'usuario_nuevo':return 'Se creó la cuenta de '+(d.email||'')+' ('+(ROLN[d.rol]||d.rol)+')';
       default:return h.accion||'';
     }
@@ -1353,13 +1354,13 @@ details.card>summary{cursor:pointer;font-weight:600}
       var ac=h.accion||'';
       if(a==='mov'&&ac.indexOf('mov_')!==0)return false;
       if(a==='cierre'&&ac!=='cierre'&&ac!=='reapertura')return false;
-      if(a==='usuarios'&&ac!=='rol'&&ac!=='usuario_nuevo')return false;
+      if(a==='usuarios'&&ac!=='rol'&&ac!=='usuario_nuevo'&&ac!=='clave')return false;
       if(q&&((h.usuario||'')+' '+textoHist(h)).toLowerCase().indexOf(q)<0)return false;
       return true;
     });
     $('hVacio').hidden=lista.length>0;
     $('hFilas').innerHTML=lista.map(function(h){
-      return '<tr><td class="num" style="white-space:nowrap">'+esc(h.creado?new Date(h.creado).toLocaleString('es-PE'):'')+'</td><td>'+esc(h.usuario||'—')+'</td><td>'+esc(({mov_nuevo:'Registro',mov_anulado:'Anulación',mov_comentario:'Comentario',mov_editado:'Edición',mov_borrado:'Eliminación',cierre:'Cierre de mes',reapertura:'Reapertura',rol:'Acceso',usuario_nuevo:'Cuenta nueva'})[h.accion]||h.accion||'')+'</td><td>'+esc(textoHist(h))+'</td></tr>';
+      return '<tr><td class="num" style="white-space:nowrap">'+esc(h.creado?new Date(h.creado).toLocaleString('es-PE'):'')+'</td><td>'+esc(h.usuario||'—')+'</td><td>'+esc(({mov_nuevo:'Registro',mov_anulado:'Anulación',mov_comentario:'Comentario',mov_editado:'Edición',mov_borrado:'Eliminación',cierre:'Cierre de mes',reapertura:'Reapertura',rol:'Acceso',usuario_nuevo:'Cuenta nueva',clave:'Contraseña'})[h.accion]||h.accion||'')+'</td><td>'+esc(textoHist(h))+'</td></tr>';
     }).join('');
   }
   $('hAccion').addEventListener('change',renderHistorial);$('hBuscar').addEventListener('input',renderHistorial);
@@ -1594,7 +1595,7 @@ details.card>summary{cursor:pointer;font-weight:600}
       var yoMismo=u.id===miId;
       var sel='<select data-uid="'+esc(u.id)+'" aria-label="Rol de '+esc(u.nombre||u.email)+'"'+(yoMismo?' disabled':'')+'>'+
         ['pendiente','lector','cajero','admin','bloqueado'].map(function(r){return '<option value="'+r+'"'+(u.rol===r?' selected':'')+'>'+ROLES[r]+'</option>'}).join('')+'</select>';
-      return '<tr><td><strong>'+esc(u.nombre||'—')+'</strong>'+(yoMismo?'<span class="tag">tú</span>':'')+'</td><td>'+esc(u.email||'')+'</td><td>'+sel+'</td><td class="num">'+esc(String(u.creado||'').slice(0,10))+'</td></tr>';
+      return '<tr><td><strong>'+esc(u.nombre||'—')+'</strong>'+(yoMismo?'<span class="tag">tú</span>':'')+'</td><td>'+esc(u.email||'')+'</td><td>'+sel+'</td><td><span class="clv" data-cl="'+esc(u.id)+'"><button class="link" type="button" data-clabrir="'+esc(u.id)+'">Cambiar</button></span></td><td class="num">'+esc(String(u.creado||'').slice(0,10))+'</td></tr>';
     }).join('');
   }
   $('uForm').addEventListener('submit',async function(e){
@@ -1606,6 +1607,19 @@ details.card>summary{cursor:pointer;font-weight:600}
       $('uForm').reset();setMsg(m,'Usuario creado: '+c+'. Entrégale su contraseña.');cargarUsuarios();
     }catch(er){setMsg(m,A.mensajeError(er),true)}
     b.disabled=false;
+  });
+  $('uFilas').addEventListener('click',async function(e){
+    var t=e.target;if(!t.getAttribute)return;var m=$('uMsg');
+    var ab=t.getAttribute('data-clabrir'),gu=t.getAttribute('data-clguardar'),ca=t.getAttribute('data-clcancelar');
+    if(ab){var box=t.parentNode;box.innerHTML='<input type="text" autocomplete="off" minlength="6" placeholder="Nueva contraseña" style="width:150px" data-clinput="'+esc(ab)+'"> <button class="link" type="button" data-clguardar="'+esc(ab)+'">Guardar</button> <button class="link" type="button" data-clcancelar="1">Cancelar</button>';box.querySelector('input').focus();return}
+    if(ca){renderUsuarios();return}
+    if(gu){
+      var inp=t.parentNode.querySelector('input'),pw=inp.value;
+      if(pw.length<6){setMsg(m,'La contraseña debe tener al menos 6 caracteres.',true);return}
+      t.disabled=true;setMsg(m,'Guardando…');
+      try{await A.cambiarClave(gu,pw);var u=usuarios.find(function(x){return x.id===gu});setMsg(m,'Contraseña cambiada'+(u?' para '+(u.email||''):'')+'. Entrégasela a la persona.');renderUsuarios()}
+      catch(er){setMsg(m,er&&er.message&&/6 caracteres|al menos/i.test(er.message)?'La contraseña debe tener al menos 6 caracteres.':'No se pudo cambiar la contraseña.',true);t.disabled=false}
+    }
   });
   $('uFilas').addEventListener('change',async function(e){
     var s=e.target;if(!s.getAttribute||!s.getAttribute('data-uid'))return;
