@@ -423,7 +423,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
           <h2>Movimientos</h2>
           <div class="btnrow">
             <button class="btn" id="btnPdf" type="button">Reporte PDF</button>
-            <button class="btn ghost" id="btnCsv" type="button">Excel (CSV)</button>
+            <button class="btn ghost" id="btnCsv" type="button">Excel (.xlsx)</button>
           </div>
         </div>
         <div class="lfilters">
@@ -657,6 +657,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 <script src="config.js"></script>
 <script src="adapter.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <script>
 (function(){
@@ -1517,15 +1518,36 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
   /* ---------- Descargas ---------- */
   function etiquetaTipo(m){return m.traspaso?(m.tipo==='entrada'?'Traspaso recibido':'Traspaso enviado'):m.ajuste?'Ajuste de arqueo':(m.tipo==='entrada'?'Entrada':'Salida')}
   $('btnCsv').addEventListener('click',function(){
-    var lista=filtrados(),q=function(v){v=String(v==null?'':v);return '"'+v.replace(/"/g,'""')+'"'};
+    var lista=filtrados(),b=this,old=b.textContent;
     var head=['Fecha','Tipo','Caja','Concepto','Categoría','Obra','Origen/Destino','Comprobante','Método','Moneda','Importe','Tipo de cambio','Comentario','Estado'];
-    var lines=[head.map(q).join(',')].concat(lista.map(function(m){
-      return [fechaBonita(m.fecha),etiquetaTipo(m),m.caja,m.concepto,m.categoria||'',m.obra||'',m.destinatario,m.comprobante,m.metodo,m.moneda,m.importe,m.tc||'',m.comentario||'',m.anulado?'Anulado':'Activo'].map(q).join(',');
-    }));
-    var data='﻿'+lines.join('\r\n'),b=this,old=b.textContent;
-    window.claude.use('downloads').then(function(dl){
-      if(!dl){b.textContent='Descarga no disponible aquí';return}
-      return dl.save({filename:'caja-'+hoyISO()+'.csv',data:data}).then(function(){b.textContent='Listo'}).catch(function(err){b.textContent=(err&&err.code==='declined')?old:'No se pudo descargar'});
+    var filas=lista.map(function(m){
+      return [fechaBonita(m.fecha),etiquetaTipo(m),m.caja||'',m.concepto||'',m.categoria||'',m.obra||'',m.destinatario||'',m.comprobante||'',m.metodo||'',m.moneda||'',Number(m.importe),m.tc?Number(m.tc):'',m.comentario||'',m.anulado?'Anulado':'Activo'];
+    });
+    function csv(){
+      var q=function(v){v=String(v==null?'':v);return '"'+v.replace(/"/g,'""')+'"'};
+      /* punto y coma: es el separador que Excel usa en español; "sep=;" fuerza una celda por columna */
+      return '﻿sep=;\r\n'+[head].concat(filas).map(function(r){return r.map(q).join(';')}).join('\r\n');
+    }
+    function xlsx(){
+      var wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('Movimientos');
+      ws.columns=head.map(function(h,i){return {header:h,key:'c'+i,width:[18,16,18,24,16,16,28,16,14,9,14,14,34,10][i]}});
+      filas.forEach(function(r){ws.addRow(r)});
+      var hr=ws.getRow(1);hr.font={name:'Arial',bold:true,color:{argb:'FFFFFFFF'}};
+      hr.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1C5CAB'}};
+      hr.alignment={vertical:'middle',wrapText:true};
+      ws.eachRow(function(row,n){if(n>1)row.font={name:'Arial'}});
+      ws.getColumn(11).numFmt='#,##0.00';ws.getColumn(12).numFmt='#,##0.000';
+      ws.views=[{state:'frozen',ySplit:1}];
+      ws.autoFilter={from:{row:1,column:1},to:{row:1,column:head.length}};
+      return wb.xlsx.writeBuffer().then(function(buf){return new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})});
+    }
+    b.textContent='Preparando…';
+    var listo=window.ExcelJS?xlsx().then(function(blob){return {name:'caja-'+hoyISO()+'.xlsx',data:blob}}):Promise.resolve({name:'caja-'+hoyISO()+'.csv',data:csv()});
+    listo.catch(function(){return {name:'caja-'+hoyISO()+'.csv',data:csv()}}).then(function(f){
+      return window.claude.use('downloads').then(function(dl){
+        if(!dl){b.textContent='Descarga no disponible aquí';return}
+        return dl.save({filename:f.name,data:f.data}).then(function(){b.textContent='Listo'}).catch(function(err){b.textContent=(err&&err.code==='declined')?old:'No se pudo descargar'});
+      });
     }).then(function(){setTimeout(function(){b.textContent=old},2500)});
   });
 
